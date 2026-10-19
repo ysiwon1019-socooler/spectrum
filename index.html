@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>스펙트럼 정렬</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<style>
+/* Layout: 제목 → 입장진술문 → [수업 전 칸 / 스펙트럼 선 / 수업 후 칸]을 같은 5열 격자로 맞추고, 이름표 보관함은 맨 아래 */
+:root {
+  --bg: #fbfaff;
+  --surface: #ffffff;
+  --ink: #26213a;
+  --muted: #6c6684;
+  --line: #e2ddf0;
+
+  --plum: #5b2a86;
+  --plum-soft: #f2e8f8;
+
+  --before: #2f67a6;
+  --before-soft: #eef4fb;
+  --before-tag: #f4f8fd;
+
+  --after: #c23a30;
+  --after-soft: #fdf1ef;
+  --after-tag: #fff7f6;
+
+  --s1: #d9637a;
+  --s2: #dc9a86;
+  --s3: #bfc3cf;
+  --s4: #8fbf8f;
+  --s5: #47a463;
+
+  --guide: #c9b3dd;
+  --shadow: 0 6px 18px rgb(38 33 58 / 0.18);
+
+  --font-display: "Jua", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-body: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+
+  --tag-size: clamp(13px, 1.25vw, 20px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17141f; --surface: #211d2c; --ink: #eeeaf6; --muted: #a49dba; --line: #393247;
+    --plum: #c79bf0; --plum-soft: #2c2340;
+    --before: #79aee8; --before-soft: #1a2433; --before-tag: #1f2b3d;
+    --after: #f08a80; --after-soft: #2f1c1d; --after-tag: #3a2224;
+    --s3: #6f7383; --guide: #5a4a6e; --shadow: 0 6px 18px rgb(0 0 0 / 0.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17141f; --surface: #211d2c; --ink: #eeeaf6; --muted: #a49dba; --line: #393247;
+  --plum: #c79bf0; --plum-soft: #2c2340;
+  --before: #79aee8; --before-soft: #1a2433; --before-tag: #1f2b3d;
+  --after: #f08a80; --after-soft: #2f1c1d; --after-tag: #3a2224;
+  --s3: #6f7383; --guide: #5a4a6e; --shadow: 0 6px 18px rgb(0 0 0 / 0.5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+}
+.page {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ---------- 머리말 ---------- */
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(24px, 3vw, 44px);
+  line-height: 1.2;
+  color: var(--plum);
+  text-wrap: balance;
+  word-break: keep-all;
+}
+h1 .sep { color: var(--muted); }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn {
+  font: 500 14px/1 var(--font-body);
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.btn:hover { border-color: var(--plum); color: var(--plum); }
+.btn--primary { background: var(--plum); border-color: var(--plum); color: var(--surface); }
+.btn--primary:hover { color: var(--surface); filter: brightness(1.08); }
+.btn:focus-visible, .tag:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--plum);
+  outline-offset: 2px;
+}
+
+/* ---------- 입장진술문 ---------- */
+.statement {
+  border: 4px solid var(--plum);
+  background: var(--plum-soft);
+  border-radius: 999px;
+  padding: 10px clamp(20px, 4vw, 60px);
+  display: flex;
+  align-items: center;
+}
+.statement textarea {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  resize: none;
+  overflow: hidden;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: clamp(20px, 2.4vw, 38px);
+  line-height: 1.35;
+  color: var(--plum);
+  padding: 6px 0;
+  border-radius: 12px;
+}
+.statement textarea::placeholder { color: var(--plum); opacity: 0.45; }
+
+/* ---------- 보드 ---------- */
+.board { display: flex; flex-direction: column; gap: 0; }
+.grid5 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+.zone {
+  position: relative;
+  border: 2.5px dashed var(--zc);
+  background: var(--zsoft);
+  border-radius: 16px;
+  min-height: clamp(150px, 22vh, 260px);
+  margin-top: 26px;
+  display: flex;
+  flex-direction: column;
+}
+.zone-cols { flex: 1; }
+.zone--before { --zc: var(--before); --zsoft: var(--before-soft); --tagbg: var(--before-tag); }
+.zone--after  { --zc: var(--after);  --zsoft: var(--after-soft);  --tagbg: var(--after-tag); }
+.zone-label {
+  position: absolute;
+  top: -20px;
+  left: 14px;
+  z-index: 1;
+  font: 700 clamp(13px, 1.1vw, 17px)/1 var(--font-body);
+  letter-spacing: 0.02em;
+  color: var(--zc);
+  background: var(--zsoft);
+  border: 2px solid var(--zc);
+  border-radius: 10px;
+  padding: 8px 14px;
+}
+.zone-label small { font-weight: 500; opacity: 0.8; }
+
+.col {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  align-content: flex-start;
+  gap: 6px;
+  padding: 26px 6px 14px;
+  min-height: 100%;
+  border-radius: 12px;
+  transition: background-color 0.12s;
+  /* 세로 점선 안내선 */
+  background-image: linear-gradient(var(--guide) 50%, transparent 0);
+  background-size: 2px 10px;
+  background-repeat: repeat-y;
+  background-position: center top;
+}
+.zone--before .col { flex-wrap: wrap-reverse; padding: 26px 6px 14px; }
+.zone--after .col { padding: 18px 6px 18px; }
+
+.axis {
+  position: relative;
+  padding-block: 18px 6px;
+}
+.axis::before {
+  content: "";
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 31px;
+  height: 10px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--s1), var(--s2) 25%, var(--s3) 50%, var(--s4) 75%, var(--s5));
+}
+.stop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 4px solid var(--bg);
+  background: var(--c);
+  box-shadow: 0 0 0 1px var(--line);
+}
+.stop-name {
+  font-family: var(--font-display);
+  font-size: clamp(15px, 1.8vw, 28px);
+  line-height: 1.2;
+  color: var(--ink);
+  word-break: keep-all;
+}
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 8px;
+  font: 500 clamp(11px, 0.9vw, 13px)/1.2 var(--font-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.counts .b { color: var(--before); }
+.counts .a { color: var(--after); }
+
+/* ---------- 이름표 ---------- */
+.tag {
+  font: 700 var(--tag-size)/1 var(--font-body);
+  min-width: 4.4em;
+  padding: 0.45em 0.8em;
+  border-radius: 0.55em;
+  border: 2.5px solid var(--zc);
+  background: var(--tagbg);
+  color: var(--zc);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tag:hover { box-shadow: 0 2px 8px rgb(38 33 58 / 0.15); }
+.tag.is-dragging { opacity: 0.3; }
+.ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1000;
+  pointer-events: none;
+  cursor: grabbing;
+  box-shadow: var(--shadow);
+  transform-origin: center;
+}
+
+/* 끌고 있을 때 놓을 수 있는 곳 표시 */
+body.drag-before .zone--before .col:not(.over),
+body.drag-after .zone--after .col:not(.over) { background-color: color-mix(in srgb, var(--zc) 5%, transparent); }
+.col.over, .tray.over { background-color: color-mix(in srgb, var(--zc) 16%, transparent) !important; }
+body.drag-before .zone--after,
+body.drag-after .zone--before { opacity: 0.45; }
+
+/* ---------- 이름표 보관함 ---------- */
+.dock {
+  margin-top: 10px;
+  border-top: 2px solid var(--line);
+  padding-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dock-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+}
+.dock-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(18px, 1.8vw, 26px);
+}
+.dock-head p { margin: 0; color: var(--muted); font-size: 14px; }
+.trays {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.tray-box {
+  border: 2px solid var(--zc);
+  background: var(--zsoft);
+  border-radius: 14px;
+  min-width: 0;
+}
+.tray-box--before { --zc: var(--before); --zsoft: var(--before-soft); --tagbg: var(--before-tag); }
+.tray-box--after  { --zc: var(--after);  --zsoft: var(--after-soft);  --tagbg: var(--after-tag); }
+.tray-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px 0;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--zc);
+}
+.tray-title span:last-child { font-weight: 500; font-variant-numeric: tabular-nums; }
+.tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 14px 14px;
+  min-height: 64px;
+  border-radius: 0 0 12px 12px;
+}
+.tray:empty::after {
+  content: "모든 이름표가 자리를 찾았어요.";
+  color: var(--muted);
+  font-size: 14px;
+  align-self: center;
+}
+.help {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+kbd {
+  font: 600 12px/1 var(--font-body);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 2px 5px;
+  background: var(--surface);
+}
+
+/* ---------- 대화상자 ---------- */
+dialog {
+  border: 0;
+  border-radius: 18px;
+  padding: 0;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+dialog::backdrop { background: rgb(23 20 31 / 0.55); }
+.dlg { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+.dlg h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 26px; color: var(--plum); }
+.dlg p { margin: 0; color: var(--muted); line-height: 1.6; font-size: 15px; }
+.dlg textarea {
+  width: 100%;
+  min-height: 240px;
+  font: 500 17px/1.6 var(--font-body);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--bg);
+  color: var(--ink);
+  resize: vertical;
+}
+.dlg-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.dlg-foot .right { display: flex; gap: 8px; margin-left: auto; }
+.roster-count { font-weight: 700; color: var(--plum); font-variant-numeric: tabular-nums; }
+.roster-count.warn { color: var(--after); }
+
+#changeDlg { width: min(720px, calc(100vw - 32px)); }
+.table-wrap { overflow: auto; max-height: 60vh; border: 1px solid var(--line); border-radius: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { position: sticky; top: 0; background: var(--surface); font-size: 13px; color: var(--muted); font-weight: 700; }
+td.name { font-weight: 700; }
+.chg { font-weight: 700; }
+.chg--agree { color: var(--s5); }
+.chg--oppose { color: var(--s1); }
+.chg--same, .chg--none { color: var(--muted); font-weight: 500; }
+.summary-line { font-size: 15px; color: var(--ink); line-height: 1.6; }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  transform: translate(-50%, 20px);
+  background: var(--ink);
+  color: var(--bg);
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 15px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+  max-width: calc(100vw - 32px);
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (max-width: 760px) {
+  .trays { grid-template-columns: 1fr; }
+  .col { padding-inline: 2px; gap: 4px; }
+  .tag { min-width: 0; padding: 0.4em 0.45em; border-width: 2px; }
+  .dot { width: 22px; height: 22px; }
+  .axis::before { top: 27px; height: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>사고 전략: 스펙트럼 입장진술문<span class="sep">,</span> 스펙트럼 정렬</h1>
+    <div class="tools">
+      <button class="btn" id="btnChange" type="button">입장 변화 보기</button>
+      <button class="btn" id="btnReset" type="button">이름표 모두 되돌리기</button>
+      <button class="btn" id="btnRoster" type="button">학생 명단</button>
+      <button class="btn" id="btnFull" type="button">전체 화면</button>
+    </div>
+  </header>
+
+  <div class="statement">
+    <label for="statement" class="sr" hidden>입장진술문</label>
+    <textarea id="statement" rows="1" placeholder="여기를 눌러 입장진술문을 입력하세요." aria-label="입장진술문"></textarea>
+  </div>
+
+  <section class="board" id="board" aria-label="스펙트럼">
+    <div class="zone zone--before">
+      <div class="zone-label">수업 전 · <small>파란 이름표</small></div>
+      <div class="grid5 zone-cols" data-zone="before"></div>
+    </div>
+
+    <div class="axis grid5" id="axis"></div>
+
+    <div class="zone zone--after">
+      <div class="zone-label">수업 후 · <small>빨간 이름표</small></div>
+      <div class="grid5 zone-cols" data-zone="after"></div>
+    </div>
+  </section>
+
+  <section class="dock" aria-label="이름표 보관함">
+    <div class="dock-head">
+      <h2>이름표 보관함</h2>
+      <p>내 이름표를 끌어서 내 생각과 가장 가까운 자리에 놓아요. 다시 보관함에 놓으면 돌아와요.</p>
+    </div>
+    <div class="trays">
+      <div class="tray-box tray-box--before">
+        <div class="tray-title"><span>수업 전 · 파란 이름표</span><span id="leftBefore"></span></div>
+        <div class="tray" data-drop data-zone="before"></div>
+      </div>
+      <div class="tray-box tray-box--after">
+        <div class="tray-title"><span>수업 후 · 빨간 이름표</span><span id="leftAfter"></span></div>
+        <div class="tray" data-drop data-zone="after"></div>
+      </div>
+    </div>
+    <p class="help">키보드로도 옮길 수 있어요: 이름표를 선택하고 <kbd>1</kbd>~<kbd>5</kbd> 를 누르면 매우 반대~매우 동의 자리로, <kbd>0</kbd> 을 누르면 보관함으로 돌아가요.</p>
+  </section>
+</div>
+
+<!-- 학생 명단 입력 -->
+<dialog id="rosterDlg" aria-labelledby="rosterTitle">
+  <form class="dlg" id="rosterForm" method="dialog">
+    <h2 id="rosterTitle">우리 반 학생 이름 입력</h2>
+    <p>한 줄에 한 명씩 입력하거나, 쉼표로 구분해 주세요. 엑셀에서 이름 열을 복사해 붙여 넣어도 돼요.</p>
+    <textarea id="rosterInput" placeholder="예)&#10;지우&#10;수아&#10;민재&#10;준서&#10;서연" aria-label="학생 이름 목록"></textarea>
+    <div class="dlg-foot">
+      <span class="roster-count" id="rosterCount">0명</span>
+      <div class="right">
+        <button class="btn" type="button" id="rosterCancel">닫기</button>
+        <button class="btn btn--primary" type="submit" id="rosterOk">이름표 만들기</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<!-- 입장 변화 -->
+<dialog id="changeDlg" aria-labelledby="changeTitle">
+  <div class="dlg">
+    <h2 id="changeTitle">입장 변화 살펴보기</h2>
+    <p class="summary-line" id="changeSummary"></p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>이름</th><th>수업 전</th><th>수업 후</th><th>변화</th></tr></thead>
+        <tbody id="changeBody"></tbody>
+      </table>
+    </div>
+    <p>생각해 볼 질문: 내 입장이 바뀌었다면(또는 그대로라면) 그 까닭은 무엇인가요? 어떤 근거가 내 생각을 움직였나요?</p>
+    <div class="dlg-foot"><div class="right"><button class="btn btn--primary" type="button" id="changeClose">닫기</button></div></div>
+  </div>
+</dialog>
+
+<!-- 되돌리기 확인 -->
+<dialog id="confirmDlg" aria-labelledby="confirmTitle">
+  <div class="dlg">
+    <h2 id="confirmTitle">이름표를 모두 되돌릴까요?</h2>
+    <p>스펙트럼 위의 이름표가 모두 보관함으로 돌아가요. 입장진술문과 학생 명단은 그대로 남아요.</p>
+    <div class="dlg-foot">
+      <div class="right">
+        <button class="btn" type="button" data-reset="none">취소</button>
+        <button class="btn" type="button" data-reset="after">수업 후만</button>
+        <button class="btn btn--primary" type="button" data-reset="all">모두 되돌리기</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const POS = ['매우 반대', '조금 반대', '가운데', '조금 동의', '매우 동의'];
+  const ZONES = ['before', 'after'];
+  const KEY = 'spectrum-sort-v1';
+
+  const emptyLayout = () => ({ before: POS.map(() => []), after: POS.map(() => []) });
+  let state = { statement: '', students: [], layout: emptyLayout() };
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (saved && Array.isArray(saved.students)) {
+      state.statement = String(saved.statement || '');
+      state.students = saved.students.map(String);
+      for (const z of ZONES) {
+        const cols = saved.layout && saved.layout[z];
+        if (Array.isArray(cols)) state.layout[z] = POS.map((_, i) => (cols[i] || []).filter(n => state.students.includes(n)));
+      }
+    }
+  } catch (e) { /* 저장된 기록이 없으면 새로 시작 */ }
+
+  const save = () => {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* 저장 불가 환경 */ }
+  };
+
+  const $ = s => document.querySelector(s);
+  const statementEl = $('#statement');
+  const trays = { before: $('.tray[data-zone="before"]'), after: $('.tray[data-zone="after"]') };
+  const cols = { before: [], after: [] };
+  const countEls = [];
+
+  // ----- 보드 뼈대 -----
+  for (const z of ZONES) {
+    const wrap = document.querySelector(`.zone-cols[data-zone="${z}"]`);
+    POS.forEach((label, i) => {
+      const col = document.createElement('div');
+      col.className = 'col';
+      col.dataset.drop = '';
+      col.dataset.zone = z;
+      col.dataset.pos = i;
+      col.setAttribute('aria-label', `${z === 'before' ? '수업 전' : '수업 후'} ${label}`);
+      wrap.appendChild(col);
+      cols[z].push(col);
+    });
+  }
+  const axis = $('#axis');
+  POS.forEach((label, i) => {
+    const stop = document.createElement('div');
+    stop.className = 'stop';
+    stop.innerHTML = `<span class="dot" style="--c: var(--s${i + 1})"></span><span class="stop-name">${label}</span><span class="counts"><span class="b"></span><span class="a"></span></span>`;
+    axis.appendChild(stop);
+    countEls.push({ b: stop.querySelector('.b'), a: stop.querySelector('.a') });
+  });
+
+  // ----- 상태 다루기 -----
+  const posOf = (zone, name) => state.layout[zone].findIndex(c => c.includes(name));
+  const place = (zone, name, pos) => {
+    state.layout[zone] = state.layout[zone].map(c => c.filter(n => n !== name));
+    if (pos >= 0) state.layout[zone][pos].push(name);
+    save();
+    render();
+  };
+
+  const makeTag = (zone, name) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tag';
+    b.textContent = name;
+    b.title = name;
+    b.dataset.zone = zone;
+    b.dataset.name = name;
+    return b;
+  };
+
+  function render() {
+    for (const z of ZONES) {
+      state.layout[z].forEach((names, i) => cols[z][i].replaceChildren(...names.map(n => makeTag(z, n))));
+      trays[z].replaceChildren(...state.students.filter(n => posOf(z, n) < 0).map(n => makeTag(z, n)));
+    }
+    countEls.forEach((c, i) => {
+      const b = state.layout.before[i].length, a = state.layout.after[i].length;
+      c.b.textContent = b ? `전 ${b}명` : '';
+      c.a.textContent = a ? `후 ${a}명` : '';
+    });
+    const total = state.students.length;
+    $('#leftBefore').textContent = `${trays.before.children.length} / ${total}명 남음`;
+    $('#leftAfter').textContent = `${trays.after.children.length} / ${total}명 남음`;
+  }
+
+  // ----- 입장진술문 -----
+  const fitStatement = () => {
+    statementEl.style.height = 'auto';
+    statementEl.style.height = statementEl.scrollHeight + 'px';
+  };
+  statementEl.value = state.statement;
+  statementEl.addEventListener('input', () => {
+    state.statement = statementEl.value;
+    fitStatement();
+    save();
+  });
+  statementEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); statementEl.blur(); }
+  });
+  window.addEventListener('resize', fitStatement);
+
+  // ----- 알림 -----
+  let toastTimer;
+  const toast = msg => {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  };
+
+  // ----- 끌어서 옮기기 -----
+  let drag = null;
+
+  const dropTargetAt = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    return el ? el.closest('[data-drop]') : null;
+  };
+
+  document.addEventListener('pointerdown', e => {
+    const tag = e.target.closest('.tag');
+    if (!tag || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const r = tag.getBoundingClientRect();
+    drag = {
+      tag, zone: tag.dataset.zone, name: tag.dataset.name, pointerId: e.pointerId,
+      sx: e.clientX, sy: e.clientY, dx: e.clientX - r.left, dy: e.clientY - r.top,
+      w: r.width, ghost: null, over: null
+    };
+  });
+
+  document.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    if (!drag.ghost) {
+      if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 5) return;
+      const g = drag.tag.cloneNode(true);
+      g.classList.add('ghost');
+      g.style.width = drag.w + 'px';
+      // 칸 밖으로 나가도 색이 유지되도록 색 변수를 그대로 복사
+      const cs = getComputedStyle(drag.tag);
+      ['--zc', '--tagbg'].forEach(v => g.style.setProperty(v, cs.getPropertyValue(v)));
+      g.style.fontSize = cs.fontSize;
+      document.body.appendChild(g);
+      drag.ghost = g;
+      drag.tag.classList.add('is-dragging');
+      document.body.classList.add('drag-' + drag.zone);
+    }
+    e.preventDefault();
+    drag.ghost.style.transform = `translate(${e.clientX - drag.dx}px, ${e.clientY - drag.dy}px) scale(1.08)`;
+    const t = dropTargetAt(e.clientX, e.clientY);
+    const valid = t && t.dataset.zone === drag.zone ? t : null;
+    if (valid !== drag.over) {
+      if (drag.over) drag.over.classList.remove('over');
+      if (valid) valid.classList.add('over');
+      drag.over = valid;
+    }
+  }, { passive: false });
+
+  const endDrag = (e, cancelled) => {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    const d = drag;
+    drag = null;
+    if (!d.ghost) return;
+    d.ghost.remove();
+    d.tag.classList.remove('is-dragging');
+    document.body.classList.remove('drag-before', 'drag-after');
+    if (d.over) d.over.classList.remove('over');
+    if (cancelled) return;
+    const t = dropTargetAt(e.clientX, e.clientY);
+    if (!t) return;
+    if (t.dataset.zone !== d.zone) {
+      toast(d.zone === 'before' ? '파란 이름표는 ‘수업 전’ 칸에 놓아요.' : '빨간 이름표는 ‘수업 후’ 칸에 놓아요.');
+      return;
+    }
+    place(d.zone, d.name, t.classList.contains('tray') ? -1 : Number(t.dataset.pos));
+  };
+  document.addEventListener('pointerup', e => endDrag(e, false));
+  document.addEventListener('pointercancel', e => endDrag(e, true));
+
+  // ----- 키보드로 옮기기 -----
+  document.addEventListener('keydown', e => {
+    const tag = e.target.closest && e.target.closest('.tag');
+    if (!tag) return;
+    let pos = null;
+    if (/^[1-5]$/.test(e.key)) pos = Number(e.key) - 1;
+    else if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') pos = -1;
+    if (pos === null) return;
+    e.preventDefault();
+    const { zone, name } = tag.dataset;
+    place(zone, name, pos);
+    const again = [...document.querySelectorAll('.tag')].find(t => t.dataset.zone === zone && t.dataset.name === name);
+    if (again) again.focus();
+  });
+
+  // ----- 학생 명단 -----
+  const rosterDlg = $('#rosterDlg');
+  const rosterInput = $('#rosterInput');
+  const parseNames = text => {
+    const seen = new Map();
+    return text.split(/[\n,\t;]+/).map(s => s.trim()).filter(Boolean).map(n => {
+      const k = (seen.get(n) || 0) + 1;
+      seen.set(n, k);
+      return k > 1 ? `${n}(${k})` : n;
+    });
+  };
+  const updateCount = () => {
+    const n = parseNames(rosterInput.value).length;
+    const el = $('#rosterCount');
+    el.textContent = n ? `${n}명` : '이름을 입력해 주세요';
+    el.classList.toggle('warn', !n);
+    $('#rosterOk').disabled = !n;
+  };
+  const openRoster = () => {
+    rosterInput.value = state.students.join('\n');
+    $('#rosterCancel').hidden = state.students.length === 0;
+    updateCount();
+    rosterDlg.showModal();
+    rosterInput.focus();
+  };
+  rosterInput.addEventListener('input', updateCount);
+  rosterDlg.addEventListener('cancel', e => { if (!state.students.length) e.preventDefault(); });
+  $('#rosterCancel').addEventListener('click', () => rosterDlg.close());
+  $('#rosterForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const names = parseNames(rosterInput.value);
+    if (!names.length) return;
+    state.students = names;
+    for (const z of ZONES) state.layout[z] = state.layout[z].map(c => c.filter(n => names.includes(n)));
+    save();
+    render();
+    rosterDlg.close();
+    toast(`${names.length}명의 이름표를 만들었어요.`);
+    if (!statementEl.value) statementEl.focus();
+  });
+  $('#btnRoster').addEventListener('click', openRoster);
+
+  // ----- 되돌리기 -----
+  const confirmDlg = $('#confirmDlg');
+  $('#btnReset').addEventListener('click', () => confirmDlg.showModal());
+  confirmDlg.addEventListener('click', e => {
+    const b = e.target.closest('[data-reset]');
+    if (!b) return;
+    const what = b.dataset.reset;
+    if (what === 'all') state.layout = emptyLayout();
+    if (what === 'after') state.layout.after = POS.map(() => []);
+    if (what !== 'none') { save(); render(); toast('이름표를 보관함으로 되돌렸어요.'); }
+    confirmDlg.close();
+  });
+
+  // ----- 입장 변화 -----
+  const changeDlg = $('#changeDlg');
+  $('#btnChange').addEventListener('click', () => {
+    let toAgree = 0, toOppose = 0, same = 0;
+    const rows = state.students.map(n => {
+      const b = posOf('before', n), a = posOf('after', n);
+      let cls = 'none', txt = '–';
+      if (b >= 0 && a >= 0) {
+        const d = a - b;
+        if (d > 0) { cls = 'agree'; txt = `동의 쪽으로 ${d}칸 →`; toAgree++; }
+        else if (d < 0) { cls = 'oppose'; txt = `← 반대 쪽으로 ${-d}칸`; toOppose++; }
+        else { cls = 'same'; txt = '그대로'; same++; }
+      }
+      const tr = document.createElement('tr');
+      [n, b >= 0 ? POS[b] : '–', a >= 0 ? POS[a] : '–'].forEach((v, i) => {
+        const td = document.createElement('td');
+        td.textContent = v;
+        if (i === 0) td.className = 'name';
+        tr.appendChild(td);
+      });
+      const td = document.createElement('td');
+      td.className = `chg chg--${cls}`;
+      td.textContent = txt;
+      tr.appendChild(td);
+      return tr;
+    });
+    $('#changeBody').replaceChildren(...rows);
+    const compared = toAgree + toOppose + same;
+    $('#changeSummary').textContent = compared
+      ? `수업 전과 후를 모두 놓은 ${compared}명 중 동의 쪽으로 ${toAgree}명, 반대 쪽으로 ${toOppose}명이 움직였고 ${same}명은 그대로예요.`
+      : '수업 전과 수업 후 이름표를 모두 놓은 학생이 아직 없어요.';
+    changeDlg.showModal();
+  });
+  $('#changeClose').addEventListener('click', () => changeDlg.close());
+
+  // ----- 전체 화면 -----
+  $('#btnFull').addEventListener('click', () => {
+    const p = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    if (p && p.catch) p.catch(() => toast('이 화면에서는 전체 화면을 쓸 수 없어요.'));
+  });
+
+  // ----- 시작 -----
+  render();
+  fitStatement();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitStatement);
+  openRoster();
+})();
+</script>
+</body>
+</html>
